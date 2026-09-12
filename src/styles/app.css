@@ -1071,6 +1071,30 @@ button {
   font-size: 1.05rem;
 }
 
+.drop .paste {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--card);
+  font: inherit;
+  margin-top: 0.35rem;
+}
+
+.drop .paste:focus {
+  border-color: var(--drop-ring);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--drop);
+}
+
+.drop .file-pick {
+  justify-self: start;
+  cursor: pointer;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .mapping {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));

@@ -8,12 +8,14 @@ export function Welcome({ onImport }: { onImport: () => void }) {
       <p>Every organization and calling in the ward, who holds it, and how long they've served. Plus a planning mode to try out changes before anything happens in LCR.</p>
       <ol>
         <li>
-          In LCR, open <b>Organizations → Members with Callings</b> and export it as CSV.
+          In LCR, open <b>Members with Callings</b>, select the whole table (headings included), and copy it (Ctrl+C).
         </li>
         <li>
-          Export a <b>member list</b> as CSV (Name, Gender, Age). This is what tells the board who doesn't have a calling.
+          Click Import below and paste it into box 1.
         </li>
-        <li>Click Import and drop both files in.</li>
+        <li>
+          Do the same with LCR's <b>Member List</b> in box 2. This is what tells the board who doesn't have a calling.
+        </li>
       </ol>
       <p className="help">Your data stays in this browser. It's never uploaded, and the website itself contains no member information.</p>
       <div className="actions">

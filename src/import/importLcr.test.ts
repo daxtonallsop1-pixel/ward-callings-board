@@ -18,6 +18,28 @@ describe('matchColumns', () => {
   });
 });
 
+describe('parseCsv (pasted from an LCR page)', () => {
+  it('reads a tab-separated copy with page text around the table', () => {
+    const pasted = [
+      'Leader and Clerk Resources',
+      'Menu',
+      'Members with Callings',
+      'Name\tGender\tAge\tOrganization\tCalling\tSustained\tSet Apart',
+      'Doe, Jane\tF\t40\tPrimary\tPrimary Teacher\t5 Mar 2025\t✔',
+      'Roe, Sam\tM\t52\tElders Quorum\tElders Quorum President\t1 Jan 2026\t',
+      'Privacy Notice',
+      '© 2026 by Intellectual Reserve, Inc.',
+    ].join('\n');
+    const p = parseCsv(pasted);
+    expect(p.headers[0]).toBe('Name');
+    expect(p.rows.map((r) => r.Name)).toEqual(['Doe, Jane', 'Roe, Sam']);
+    const r = buildBaseline({ callings: p, callingMap: matchColumns(p.headers, CALLING_FIELDS), today });
+    expect(r.baseline.assignments.map((a) => a.slotId)).toEqual(['primary.teacher', 'eq.president']);
+    expect(r.baseline.assignments[0]).toMatchObject({ sustained: '2025-03-05', setApart: true });
+    expect(r.report.skippedRows).toBe(0);
+  });
+});
+
 describe('parseCsv', () => {
   it('skips title lines above the header', () => {
     const p = parseCsv('Members with Callings\nPrinted 9/11/2026\nName,Calling,Organization\n"Doe, Jane",Primary Teacher,Primary\n');

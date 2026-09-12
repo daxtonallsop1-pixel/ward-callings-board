@@ -11,19 +11,24 @@ export interface ParsedCsv {
 }
 
 /**
- * Parses CSV text. LCR sometimes prints a title line or two above the real
- * header, so the header is the first row that looks like one.
+ * Parses CSV text, or a table copied from an LCR web page (tab-separated;
+ * the delimiter is auto-detected). A copy often drags in page text above
+ * the table, so the header is the first row that looks like one, and
+ * one-cell lines (menus, footers) are dropped.
  */
 export function parseCsv(text: string): ParsedCsv {
   const raw = Papa.parse<string[]>(text.replace(/^﻿/, ''), { skipEmptyLines: 'greedy' }).data;
-  let headerIdx = raw.findIndex((r, i) => i < 15 && r.filter((c) => c.trim()).length >= 2 && Object.keys(matchColumns(r, ['name'])).length > 0);
+  let headerIdx = raw.findIndex((r, i) => i < 80 && r.filter((c) => c.trim()).length >= 2 && Object.keys(matchColumns(r, ['name'])).length > 0);
   if (headerIdx < 0) headerIdx = 0;
   const headers = (raw[headerIdx] ?? []).map((h) => h.trim());
-  const rows = raw.slice(headerIdx + 1).map((r) => {
-    const o: Record<string, string> = {};
-    headers.forEach((h, i) => (o[h] = (r[i] ?? '').trim()));
-    return o;
-  });
+  const rows = raw
+    .slice(headerIdx + 1)
+    .filter((r) => headers.length < 2 || r.filter((c) => c.trim()).length >= 2)
+    .map((r) => {
+      const o: Record<string, string> = {};
+      headers.forEach((h, i) => (o[h] = (r[i] ?? '').trim()));
+      return o;
+    });
   return { headers, rows };
 }
 

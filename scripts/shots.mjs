@@ -56,6 +56,26 @@ for (const [w, h] of [
 
     await page.getByRole('button', { name: 'Import' }).click();
     await page.screenshot({ path: `${OUT}/import-${w}.png` });
+
+    // Simulate copying the Members with Callings table off an LCR page
+    // (browsers put an HTML table on the clipboard, with page chrome around it).
+    await page.locator('textarea.paste').first().evaluate((el) => {
+      const rows = [
+        ['Name', 'Gender', 'Age', 'Organization', 'Calling', 'Sustained', 'Set Apart'],
+        ['Doe, Jane', 'F', '40', 'Primary', 'Primary Teacher', '5 Mar 2025', '✔'],
+        ['Roe, Sam', 'M', '52', 'Elders Quorum', 'Elders Quorum President', '1 Jan 2026', ''],
+        ['Poe, Ann', 'F', '33', 'Relief Society', 'Relief Society Compassionate Service Coordinator', '2 Feb 2026', '✔'],
+      ];
+      const html = `<nav>Menu</nav><h1>Members with Callings</h1><table>${rows
+        .map((r, i) => `<tr>${r.map((c) => (i ? `<td>${c}</td>` : `<th>${c}</th>`)).join('')}</tr>`)
+        .join('')}</table><footer>Privacy</footer>`;
+      const dt = new DataTransfer();
+      dt.setData('text/html', html);
+      dt.setData('text/plain', rows.map((r) => r.join('\t')).join('\n'));
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    });
+    await page.getByText('the pasted table: 3 rows').waitFor();
+    await page.screenshot({ path: `${OUT}/import-paste-${w}.png` });
   }
   await page.close();
 }
