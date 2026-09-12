@@ -1,0 +1,4 @@
+# Store text files with LF so Windows and Mac clerks get identical diffs.
+* text=auto eol=lf
+*.png binary
+*.woff2 binary

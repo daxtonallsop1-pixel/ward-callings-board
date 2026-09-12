@@ -1,0 +1,50 @@
+:root {
+  /* Surfaces */
+  --navy: #14243b;
+  --navy-2: #1e3350;
+  --navy-3: #2c4466;
+  --paper: #f4f1ea;
+  --card: #ffffff;
+  --sunken: #f8f6f1;
+  --rule: #e3ded3;
+  --rule-strong: #cfc8b9;
+
+  /* Text */
+  --ink: #18202c;
+  --ink-2: #3a4351;
+  --muted: #6a7280;
+  --on-navy: #f4f1ea;
+  --on-navy-muted: #b7c0cf;
+
+  /* Accent */
+  --gold: #b08a3e;
+  --gold-soft: #f3ead6;
+  --gold-ink: #6e531c;
+
+  /* Tenure bands */
+  --t-fresh: #2e7d4f;
+  --t-settled: #d9a21b;
+  --t-seasoned: #b5651d;
+  --t-long: #b3392f;
+  --t-unknown: #a2a8b1;
+
+  /* Feedback */
+  --drop: #e8eef7;
+  --drop-ring: #3e5c8a;
+  --danger: #a3372d;
+
+  --radius: 0.5rem;
+  --shadow: 0 1px 2px rgba(20, 36, 59, 0.06), 0 1px 1px rgba(20, 36, 59, 0.04);
+  --shadow-lift: 0 10px 30px rgba(20, 36, 59, 0.18);
+
+  --font: 'Source Sans 3', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * Everything is sized in rem, and the root size tracks the viewport, so the
+ * same layout reads from across the room on a 1080p or 4K TV and still fits
+ * a 13" laptop.
+ */
+html {
+  font-size: clamp(14px, 0.9vw, 34px);
+}
