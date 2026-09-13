@@ -3,7 +3,7 @@ import type { AppState, Baseline, Member, MemberFlags, Scenario, Settings, Slot 
 import { buildView, activeScenario, type BoardView } from '../model/board';
 import { assign, newId, release, releaseAll, scenarioSlot } from '../model/scenario';
 import { memberKey } from '../model/names';
-import { buildBaseline, parseCsv, matchColumns, CALLING_FIELDS, MEMBER_FIELDS } from '../import/importLcr';
+import { buildBaseline, parseCsv, matchColumns, CALLING_FIELDS, MEMBER_FIELDS, STAKE_FIELDS } from '../import/importLcr';
 import { demoCsvs } from '../import/demo';
 import { defaultState, loadState, migrate, saveState } from './persist';
 import { applyImport } from './transitions';
@@ -71,14 +71,17 @@ function makeActions(
     },
 
     loadDemo: () => {
-      const { callings, members } = demoCsvs();
+      const { callings, members, stake } = demoCsvs();
       const c = parseCsv(callings);
       const m = parseCsv(members);
+      const s = parseCsv(stake);
       const { baseline } = buildBaseline({
         callings: c,
         callingMap: matchColumns(c.headers, CALLING_FIELDS),
         members: m,
         memberMap: matchColumns(m.headers, MEMBER_FIELDS),
+        stake: s,
+        stakeMap: matchColumns(s.headers, STAKE_FIELDS),
       });
       undo.clear();
       set((s) => ({ ...defaultState(), settings: s.settings, wardName: 'Maple Grove Ward (demo)', baseline: { ...baseline, demo: true } }));

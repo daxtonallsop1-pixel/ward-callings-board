@@ -14,15 +14,15 @@ This repository is **public** on purpose (see "Why public?" below). That's safe 
 ## Using it
 
 1. Open the site (Vercel URL) on the laptop connected to the TV.
-2. **Import:** LCR shows these reports only as PDFs, and the board reads the PDFs directly, in the browser.
-   - In LCR, open the report, click **Print**, and save the PDF into `private/` (or anywhere off GitHub).
-   - Click **Import** and drop each PDF into its box.
+2. **Import:** LCR shows these reports only as PDFs, and the board reads the PDFs directly, in the browser. In LCR, open each report, click **Print**, and save the PDF into `private/` (or anywhere off GitHub). Then click **Import** and drop each PDF into its box:
 
-   The two reports are:
-   - **Members with Callings**
-   - A **member list** (Name, Gender, Age). This is how the board knows who has no calling.
+   | Box | LCR report | Fills |
+   | --- | --- | --- |
+   | 1 | **Members with Callings** (required) | Every ward calling and who holds it |
+   | 2 | **Members without Callings** | The Available column |
+   | 3 | **Stake Callings** | The Stake Callings card |
 
-   The importer rebuilds the table from the PDF and matches columns automatically. If it can't find one, it asks you to pick it. CSV files and tables pasted from a web page work too.
+   The importer rebuilds each table from the PDF and matches columns automatically. If it can't find one, it asks you to pick it. If the stake report covers several wards, you pick yours (it preselects the best match). CSV files work too.
 3. **Plan:** click **Current (LCR) ▾ → New scenario from Current**. Then:
    - Drag a name onto a calling to move them there. Whoever was in it is released.
    - Hold **Ctrl** (or Alt) while dropping to *add* a calling without releasing the current one.

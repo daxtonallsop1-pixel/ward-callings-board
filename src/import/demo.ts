@@ -87,7 +87,8 @@ function csv(rows: (string | number)[][]) {
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
-export function demoCsvs(today: Date = new Date()): { callings: string; members: string } {
+/** The three LCR reports: with callings, without callings, stake callings. */
+export function demoCsvs(today: Date = new Date()): { callings: string; members: string; stake: string } {
   const rand = rng(42);
   const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
 
@@ -115,18 +116,26 @@ export function demoCsvs(today: Date = new Date()): { callings: string; members:
   };
 
   const callingRows: (string | number)[][] = [['Name', 'Gender', 'Age', 'Organization', 'Calling', 'Sustained', 'Set Apart']];
+  const stakeRows: (string | number)[][] = [['Name', 'Organization', 'Calling', 'Sustained', 'Set Apart']];
+  const called = new Set<string>();
   for (const [org, calling, g, count, youth] of CALLINGS) {
     for (let i = 0; i < count; i++) {
       const p = take(g, !!youth);
       if (!p) continue;
+      called.add(p.name);
       const monthsAgo = Math.floor(rand() * (youth ? 12 : 30));
       const d = new Date(today.getFullYear(), today.getMonth() - monthsAgo, 1 + Math.floor(rand() * 27));
-      callingRows.push([p.name, p.gender === 'M' ? 'Male' : 'Female', p.age, org, calling, lcrDate(d), rand() < 0.9 ? 'Yes' : '']);
+      const setApart = rand() < 0.9 ? 'Yes' : '';
+      if (org.startsWith('Stake')) stakeRows.push([p.name, org, calling, lcrDate(d), setApart]);
+      else callingRows.push([p.name, p.gender === 'M' ? 'Male' : 'Female', p.age, org, calling, lcrDate(d), setApart]);
     }
   }
 
+  // "Members without Callings": everyone not called above.
   const memberRows: (string | number)[][] = [['Name', 'Gender', 'Age']];
-  for (const p of [...people].sort((a, b) => a.name.localeCompare(b.name))) memberRows.push([p.name, p.gender === 'M' ? 'M' : 'F', p.age]);
+  for (const p of [...people].sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!called.has(p.name)) memberRows.push([p.name, p.gender === 'M' ? 'M' : 'F', p.age]);
+  }
 
-  return { callings: csv(callingRows), members: csv(memberRows) };
+  return { callings: csv(callingRows), members: csv(memberRows), stake: csv(stakeRows) };
 }

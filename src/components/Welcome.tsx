@@ -8,10 +8,7 @@ export function Welcome({ onImport }: { onImport: () => void }) {
       <p>Every organization and calling in the ward, who holds it, and how long they've served. Plus a planning mode to try out changes before anything happens in LCR.</p>
       <ol>
         <li>
-          In LCR, open <b>Members with Callings</b>, click <b>Print</b>, and save the PDF.
-        </li>
-        <li>
-          Do the same with a <b>member list</b>. This is what tells the board who doesn't have a calling.
+          In LCR, print these three reports and save each as a PDF: <b>Members with Callings</b>, <b>Members without Callings</b>, and <b>Stake Callings</b>.
         </li>
         <li>Click Import below and drop each PDF into its box.</li>
       </ol>

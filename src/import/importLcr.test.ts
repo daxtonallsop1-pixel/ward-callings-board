@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBaseline, parseCsv, CALLING_FIELDS, MEMBER_FIELDS } from './importLcr';
+import { buildBaseline, namesIn, parseCsv, stakeUnitOptions, CALLING_FIELDS, MEMBER_FIELDS, STAKE_FIELDS } from './importLcr';
 import { matchColumns, missingFields } from './columnMatch';
 import { demoCsvs } from './demo';
 import { buildView } from '../model/board';
@@ -71,14 +71,17 @@ describe('parseCsv', () => {
 });
 
 function importDemo() {
-  const { callings, members } = demoCsvs(today);
+  const { callings, members, stake } = demoCsvs(today);
   const c = parseCsv(callings);
   const m = parseCsv(members);
+  const s = parseCsv(stake);
   return buildBaseline({
     callings: c,
     callingMap: matchColumns(c.headers, CALLING_FIELDS),
     members: m,
     memberMap: matchColumns(m.headers, MEMBER_FIELDS),
+    stake: s,
+    stakeMap: matchColumns(s.headers, STAKE_FIELDS),
     today,
   });
 }
@@ -137,7 +140,8 @@ describe('buildBaseline (demo export)', () => {
   it('parses dates, set apart and members', () => {
     expect(report.skippedRows).toBe(0);
     expect(baseline.assignments.every((a) => /^\d{4}-\d{2}-\d{2}$/.test(a.sustained ?? ''))).toBe(true);
-    expect(report.membersOnlyInCallings).toEqual([]);
+    expect(report.inBothReports).toEqual([]);
+    expect(report.stakeCallings).toBe(2);
     expect(baseline.members.length).toBe(158);
     expect(baseline.hasMemberList).toBe(true);
   });
@@ -160,6 +164,46 @@ describe('buildBaseline (demo export)', () => {
     const r = buildBaseline({ callings: c, callingMap: matchColumns(c.headers, CALLING_FIELDS), members: m, memberMap: matchColumns(m.headers, MEMBER_FIELDS), today });
     expect(r.baseline.members.map((x) => x.id).sort()).toEqual(['doe, jane', 'roe, sam']);
     expect(r.baseline.assignments[0].memberId).toBe('doe, jane');
+  });
+});
+
+describe('Stake Callings report', () => {
+  const callings = parseCsv('Name,Organization,Calling\n"Doe, Jane",Primary,Primary Teacher');
+  const members = parseCsv('Name,Age\n"Roe, Sam",40');
+  const cMap = matchColumns(callings.headers, CALLING_FIELDS);
+  const mMap = matchColumns(members.headers, MEMBER_FIELDS);
+
+  it('puts every row on the stake card, even without "Stake" in the org name', () => {
+    const stake = parseCsv('Name,Organization,Calling,Sustained\n"Poe, Ann",Presidency,Executive Secretary,1 Jan 2026\n"Roe, Sam",High Council,High Councilor,2 Feb 2025');
+    const r = buildBaseline({ callings, callingMap: cMap, members, memberMap: mMap, stake, stakeMap: matchColumns(stake.headers, STAKE_FIELDS), today });
+    const inStake = r.baseline.assignments.filter((a) => a.slotId.startsWith('stake.'));
+    expect(inStake.map((a) => a.memberId).sort()).toEqual(['poe, ann', 'roe, sam']);
+    expect(r.report.stakeCallings).toBe(2);
+    expect(r.report.newCallings).toEqual([]);
+    expect(r.report.inBothReports).toEqual([]);
+    // Sam has no ward calling but serves in the stake: not "available".
+    const v = buildView({ ...defaultState(), baseline: r.baseline }, today);
+    expect(v.available).toEqual([]);
+  });
+
+  it('narrows a stake-wide report to this ward by unit', () => {
+    const stake = parseCsv(
+      'Name,Unit,Organization,Calling\n"Roe, Sam",Old Highway Ward,High Council,High Councilor\n"Zed, Al",Other Ward,High Council,High Councilor\n"Yon, Bo",Other Ward,Stake Primary,Stake Primary President',
+    );
+    const sMap = matchColumns(stake.headers, STAKE_FIELDS);
+    expect(sMap.unit).toBe('Unit');
+    const known = new Set([...namesIn(callings, cMap), ...namesIn(members, mMap)]);
+    const opts = stakeUnitOptions(stake, sMap, known);
+    expect(opts[0]).toEqual({ unit: 'Old Highway Ward', rows: 1, known: 1 });
+    const r = buildBaseline({ callings, callingMap: cMap, members, memberMap: mMap, stake, stakeMap: sMap, stakeUnit: opts[0].unit, today });
+    expect(r.baseline.members.map((m) => m.id).sort()).toEqual(['doe, jane', 'roe, sam']);
+    expect(r.report.stakeCallings).toBe(1);
+  });
+
+  it('flags people listed both with and without callings', () => {
+    const both = parseCsv('Name,Age\n"Doe, Jane",40\n"Roe, Sam",40');
+    const r = buildBaseline({ callings, callingMap: cMap, members: both, memberMap: matchColumns(both.headers, MEMBER_FIELDS), today });
+    expect(r.report.inBothReports).toEqual(['Doe, Jane']);
   });
 });
 

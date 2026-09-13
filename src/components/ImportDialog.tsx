@@ -1,6 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useBoard } from '../store/useBoardStore';
-import { buildBaseline, parseCsv, CALLING_FIELDS, CALLING_REQUIRED, MEMBER_FIELDS, MEMBER_REQUIRED, type ParsedCsv } from '../import/importLcr';
+import {
+  buildBaseline,
+  namesIn,
+  parseCsv,
+  stakeUnitOptions,
+  CALLING_FIELDS,
+  CALLING_REQUIRED,
+  MEMBER_FIELDS,
+  MEMBER_REQUIRED,
+  STAKE_FIELDS,
+  STAKE_REQUIRED,
+  type ParsedCsv,
+} from '../import/importLcr';
 import { FIELD_LABELS, matchColumns, missingFields, type ColumnMap, type Field } from '../import/columnMatch';
 import { Dialog } from './common';
 
@@ -14,24 +26,25 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
   const { state, actions } = useBoard();
   const [callings, setCallings] = useState<Loaded | null>(null);
   const [members, setMembers] = useState<Loaded | null>(null);
+  const [stake, setStake] = useState<Loaded | null>(null);
+  const [stakeUnit, setStakeUnit] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const loadText = (text: string, name: string, fields: Field[], setter: (l: Loaded) => void) => {
-    setError(null);
     try {
       const csv = parseCsv(text);
       if (csv.headers.length < 2 || !csv.rows.length) throw new Error('empty');
       setter({ fileName: name, csv, map: matchColumns(csv.headers, fields) });
     } catch {
-      setError(`Couldn't find a table in ${name}. Make sure it includes the column headings (Name, Calling, …) and at least one row.`);
+      setError(`Couldn't find a table in ${name}. Make sure it's the right LCR report, with column headings (Name, Calling, …).`);
     }
   };
 
   const load = async (file: File, fields: Field[], setter: (l: Loaded) => void) => {
     setError(null);
     if (/\.(xlsx|xls)$/i.test(file.name)) {
-      setError(`"${file.name}" is an Excel file. Open it in Excel and use File → Save As → CSV.`);
+      setError(`"${file.name}" is an Excel file. Use the PDF from LCR's Print button instead.`);
       return;
     }
     if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
@@ -39,7 +52,7 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       try {
         const { readPdfTable } = await import('../import/readPdf');
         const text = await readPdfTable(file);
-        if (!text) setError(`Couldn't find a table with a "Name" column in "${file.name}". Is it one of the LCR reports?`);
+        if (!text) setError(`Couldn't find a table with a "Name" column in "${file.name}". Is it one of the three LCR reports?`);
         else loadText(text, `"${file.name}"`, fields, setter);
       } catch {
         setError(`Couldn't open "${file.name}" as a PDF.`);
@@ -51,19 +64,38 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
     loadText(await file.text(), `"${file.name}"`, fields, setter);
   };
 
+  // If the stake report covers several wards, pick ours (best name overlap).
+  const unitOptions = useMemo(() => {
+    if (!stake) return [];
+    const known = new Set([...namesIn(callings?.csv, callings?.map), ...namesIn(members?.csv, members?.map)]);
+    return stakeUnitOptions(stake.csv, stake.map, known);
+  }, [stake, callings, members]);
+  const unit = unitOptions.length > 1 ? (stakeUnit ?? unitOptions[0].unit) : undefined;
+
   const callingsMissing = callings ? missingFields(callings.map, CALLING_REQUIRED) : CALLING_REQUIRED;
   const membersMissing = members ? missingFields(members.map, MEMBER_REQUIRED) : [];
+  const stakeMissing = stake ? missingFields(stake.map, STAKE_REQUIRED) : [];
 
   const result = useMemo(() => {
-    if (!callings || callingsMissing.length || membersMissing.length) return null;
-    return buildBaseline({ callings: callings.csv, callingMap: callings.map, members: members?.csv, memberMap: members?.map });
-  }, [callings, members, callingsMissing.length, membersMissing.length]);
+    if (!callings || callingsMissing.length || membersMissing.length || stakeMissing.length) return null;
+    return buildBaseline({
+      callings: callings.csv,
+      callingMap: callings.map,
+      members: members?.csv,
+      memberMap: members?.map,
+      stake: stake?.csv,
+      stakeMap: stake?.map,
+      stakeUnit: unit,
+    });
+  }, [callings, members, stake, unit, callingsMissing.length, membersMissing.length, stakeMissing.length]);
 
   const doImport = () => {
     if (!result) return;
     actions.importBaseline(result.baseline);
     onDone(`Imported ${result.report.assignments} callings and ${result.report.members} members.`);
   };
+
+  const r = result?.report;
 
   return (
     <Dialog
@@ -81,59 +113,86 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       }
     >
       <p className="help" style={{ marginTop: 0 }}>
-        Reports are read in this browser only. Nothing is uploaded anywhere. Keep the PDFs in the project's <code>private/</code> folder (or delete them after importing), and never commit them to GitHub.
+        In LCR, open each report, click <b>Print</b>, and save the PDF. The PDFs are read in this browser only and never uploaded. Keep them in the project's <code>private/</code> folder (or delete them after importing), and never commit them to GitHub.
       </p>
 
       <FileZone
         title="1. Members with Callings"
-        hint="In LCR open Members with Callings, click Print, and save the PDF. Then drop it here."
+        hint="Every ward calling and who holds it. Required."
         loaded={callings}
         onFile={(f) => load(f, CALLING_FIELDS, setCallings)}
-        onText={(t) => loadText(t, 'the pasted table', CALLING_FIELDS, setCallings)}
       />
       {callings && <Mapping loaded={callings} fields={CALLING_FIELDS} required={CALLING_REQUIRED} onChange={(map) => setCallings({ ...callings, map })} />}
 
       <FileZone
-        title="2. Member list (recommended)"
-        hint="An LCR member list PDF with Name (Gender and Age help). This is how the board knows who doesn't have a calling."
+        title="2. Members without Callings"
+        hint="Fills the Available column."
         loaded={members}
         onFile={(f) => load(f, MEMBER_FIELDS, setMembers)}
-        onText={(t) => loadText(t, 'the pasted table', MEMBER_FIELDS, setMembers)}
       />
       {members && <Mapping loaded={members} fields={MEMBER_FIELDS} required={MEMBER_REQUIRED} onChange={(map) => setMembers({ ...members, map })} />}
+
+      <FileZone
+        title="3. Stake Callings"
+        hint="Ward members serving in the stake. They show on the Stake Callings card instead of Available."
+        loaded={stake}
+        onFile={(f) => {
+          setStakeUnit(undefined);
+          load(f, STAKE_FIELDS, setStake);
+        }}
+      />
+      {stake && <Mapping loaded={stake} fields={STAKE_FIELDS} required={STAKE_REQUIRED} onChange={(map) => setStake({ ...stake, map })} />}
+      {unitOptions.length > 1 && (
+        <label className="field">
+          <span>This stake report lists several units. Show stake callings for:</span>
+          <select value={unit} onChange={(e) => setStakeUnit(e.target.value)}>
+            {unitOptions.map((o) => (
+              <option key={o.unit} value={o.unit}>
+                {o.unit} ({o.rows} callings{o.known ? `, ${o.known} names match your ward reports` : ''})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {busy && <div className="note">Reading PDF…</div>}
       {error && <div className="warn">{error}</div>}
 
-      {result && (
+      {r && (
         <div className="preview">
           <div className="stats">
             <div className="stat">
-              <b>{result.report.assignments}</b>
-              <span>callings</span>
+              <b>{r.assignments - r.stakeCallings}</b>
+              <span>ward callings</span>
+            </div>
+            {stake && (
+              <div className="stat">
+                <b>{r.stakeCallings}</b>
+                <span>stake callings</span>
+              </div>
+            )}
+            <div className="stat">
+              <b>{r.members}</b>
+              <span>people</span>
             </div>
             <div className="stat">
-              <b>{result.report.members}</b>
-              <span>members</span>
-            </div>
-            <div className="stat">
-              <b>{result.report.newCallings.length}</b>
+              <b>{r.newCallings.length}</b>
               <span>new callings found</span>
             </div>
-            {result.report.skippedRows > 0 && (
+            {r.skippedRows > 0 && (
               <div className="stat">
-                <b>{result.report.skippedRows}</b>
+                <b>{r.skippedRows}</b>
                 <span>rows skipped (no name/calling)</span>
               </div>
             )}
           </div>
-          {result.report.newCallings.length > 0 && (
+          {r.newCallings.length > 0 && (
             <>
               <p className="help" style={{ marginBottom: 0 }}>
                 These aren't in the built-in list, so they'll be added to the bottom of their organization. Send this list to whoever maintains the app to sort them in properly:
               </p>
               <ul>
-                {result.report.newCallings.map((c, i) => (
+                {r.newCallings.map((c, i) => (
                   <li key={i}>
                     {c.org}: {c.calling}
                   </li>
@@ -141,18 +200,16 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
               </ul>
             </>
           )}
-          {result.report.newOrgs.length > 0 && <div className="note">New organizations added: {result.report.newOrgs.join(', ')}</div>}
-          {result.report.duplicateNames.length > 0 && (
-            <div className="note">Two or more members share these names, so callings may attach to the first one: {result.report.duplicateNames.join('; ')}</div>
-          )}
-          {result.report.membersOnlyInCallings.length > 0 && (
+          {r.newOrgs.length > 0 && <div className="note">New organizations added: {r.newOrgs.join(', ')}</div>}
+          {r.duplicateNames.length > 0 && <div className="note">Two or more members share these names, so callings may attach to the first one: {r.duplicateNames.join('; ')}</div>}
+          {r.inBothReports.length > 0 && (
             <div className="note">
-              {result.report.membersOnlyInCallings.length} people hold callings but aren't in the member list (often stake callings or name differences):{' '}
-              {result.report.membersOnlyInCallings.slice(0, 8).join('; ')}
-              {result.report.membersOnlyInCallings.length > 8 && '…'}
+              {r.inBothReports.length} {r.inBothReports.length === 1 ? 'person is' : 'people are'} in both "with" and "without" callings (were the reports pulled on different days?). They'll show in their calling:{' '}
+              {r.inBothReports.slice(0, 8).join('; ')}
+              {r.inBothReports.length > 8 && '…'}
             </div>
           )}
-          {!members && <div className="note">No member list: the Available column will be empty until you add one.</div>}
+          {!members && <div className="note">No "Members without Callings" report: the Available column will be empty until you add it.</div>}
           {state.baseline?.demo ? (
             <p className="help">The demo data, and any scenarios you made with it, will be cleared.</p>
           ) : (
@@ -168,19 +225,7 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
   );
 }
 
-function FileZone({
-  title,
-  hint,
-  loaded,
-  onFile,
-  onText,
-}: {
-  title: string;
-  hint: string;
-  loaded: Loaded | null;
-  onFile: (f: File) => void;
-  onText: (t: string) => void;
-}) {
+function FileZone({ title, hint, loaded, onFile }: { title: string; hint: string; loaded: Loaded | null; onFile: (f: File) => void }) {
   const [hot, setHot] = useState(false);
   return (
     <div
@@ -203,7 +248,7 @@ function FileZone({
         {loaded ? 'Choose a different file' : 'Drop the PDF here, or click to choose it'}
         <input
           type="file"
-          accept=".pdf,application/pdf,.csv,text/csv,.txt"
+          accept=".pdf,application/pdf,.csv,text/csv"
           className="sr-only"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -212,33 +257,8 @@ function FileZone({
           }}
         />
       </label>
-      <textarea
-        className="paste"
-        rows={1}
-        placeholder="…or paste a table copied from a web page"
-        value=""
-        onChange={() => {}}
-        onPaste={(e) => {
-          e.preventDefault();
-          const html = e.clipboardData.getData('text/html');
-          const plain = e.clipboardData.getData('text/plain');
-          onText((html && tableFromHtml(html)) || plain);
-        }}
-      />
     </div>
   );
-}
-
-/**
- * Browsers put copied web tables on the clipboard as HTML too; reading the
- * real <table> is more reliable than the plain-text version.
- */
-function tableFromHtml(html: string): string | undefined {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const table = [...doc.querySelectorAll('table')].sort((a, b) => b.rows.length - a.rows.length)[0];
-  if (!table || table.rows.length < 2) return undefined;
-  const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
-  return [...table.rows].map((tr) => [...tr.cells].map((td) => clean(td.textContent ?? '').replace(/\t/g, ' ')).join('\t')).join('\n');
 }
 
 function Mapping({ loaded, fields, required, onChange }: { loaded: Loaded; fields: Field[]; required: Field[]; onChange: (m: ColumnMap) => void }) {

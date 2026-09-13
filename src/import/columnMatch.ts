@@ -4,7 +4,7 @@
  * dialog for the user to map by hand.
  */
 
-export type Field = 'name' | 'organization' | 'calling' | 'sustained' | 'setApart' | 'gender' | 'age' | 'birthDate';
+export type Field = 'name' | 'organization' | 'calling' | 'sustained' | 'setApart' | 'gender' | 'age' | 'birthDate' | 'unit';
 
 export const FIELD_LABELS: Record<Field, string> = {
   name: 'Name',
@@ -15,6 +15,7 @@ export const FIELD_LABELS: Record<Field, string> = {
   gender: 'Gender',
   age: 'Age',
   birthDate: 'Birth date',
+  unit: 'Unit / ward',
 };
 
 const SYNONYMS: Record<Field, string[]> = {
@@ -26,6 +27,7 @@ const SYNONYMS: Record<Field, string[]> = {
   gender: ['gender', 'sex'],
   age: ['age'],
   birthDate: ['birth date', 'birthdate', 'birthday', 'date of birth'],
+  unit: ['unit', 'unit name', 'ward', 'home unit', 'congregation'],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();

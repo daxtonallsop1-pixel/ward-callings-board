@@ -18,7 +18,7 @@ export function Header({ onImport, onSettings, onBlank }: { onImport: () => void
           {asOf ? (
             <>
               LCR data as of {asOf} · {filled} of {total} callings filled
-              {hasMemberList(state.baseline, view) ? ` · ${view.available.length} adults available` : ' · no member list yet'}
+              {hasMemberList(state.baseline, view) ? ` · ${view.available.length} adults available` : ' · Available list not imported yet'}
             </>
           ) : (
             'No LCR data imported yet'

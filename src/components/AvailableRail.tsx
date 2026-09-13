@@ -66,7 +66,7 @@ export function AvailableRail() {
               ? 'No matches.'
               : hasMemberList(state.baseline, view)
                 ? 'Everyone has a calling.'
-                : 'No member list imported yet, so the board can’t tell who doesn’t have a calling. Click Import and add one in box 2.'}
+                : 'No “Members without Callings” report imported yet. Click Import and add it in box 2.'}
           </p>
         )}
         {state.settings.showYouth && (
