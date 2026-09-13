@@ -38,6 +38,26 @@ describe('parseCsv (pasted from an LCR page)', () => {
     expect(r.baseline.assignments[0]).toMatchObject({ sustained: '2025-03-05', setApart: true });
     expect(r.report.skippedRows).toBe(0);
   });
+
+  it('matches the real LCR "Members with Callings" layout', () => {
+    const p = parseCsv(
+      [
+        'Name\tGender\tAge\tBirth Date\tOrganization\tCalling\tSustained\tSet Apart',
+        'Doe, John\tM\t32\t5 Aug 1994\tBishopric\tWard Assistant Clerk\t30 Aug 2026\t✔️',
+        'Doe, Jane\tF\t31\t17 Feb 1995\tPrimary\tPrimary Teacher\t2 Nov 2025\t',
+        'Roe, Ann\tF\t28\t14 May 1998\tYoung Women\tYoung Women Secretary\t12 Oct 2025\t✔',
+      ].join('\n'),
+    );
+    const m = matchColumns(p.headers, CALLING_FIELDS);
+    expect(m).toMatchObject({ name: 'Name', gender: 'Gender', age: 'Age', organization: 'Organization', calling: 'Calling', sustained: 'Sustained', setApart: 'Set Apart' });
+    const r = buildBaseline({ callings: p, callingMap: m, today });
+    expect(r.baseline.assignments.map((a) => [a.slotId, a.sustained, a.setApart])).toEqual([
+      ['bishopric.assistant-clerk', '2026-08-30', true],
+      ['primary.teacher', '2025-11-02', false],
+      ['yw.secretary', '2025-10-12', true],
+    ]);
+    expect(r.report.newCallings).toEqual([]);
+  });
 });
 
 describe('parseCsv', () => {

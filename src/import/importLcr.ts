@@ -228,7 +228,8 @@ export function buildBaseline(input: ImportInput): { baseline: Baseline; report:
       slotId: target.id,
       memberId: id,
       sustained: cm.sustained ? parseDate(row[cm.sustained]) : undefined,
-      setApart: /^(y|yes|true|x|✓|✔)$/i.test(setApartRaw) || !!parseDate(setApartRaw),
+      // LCR shows a ✔ (sometimes with an emoji variation selector attached).
+      setApart: /[✓✔☑]|^(y|yes|true|x)$/i.test(setApartRaw.trim()) || !!parseDate(setApartRaw),
     });
   }
 
