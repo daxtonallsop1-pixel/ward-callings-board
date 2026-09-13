@@ -57,6 +57,8 @@ describe('parseCsv (pasted from an LCR page)', () => {
       ['yw.secretary', '2025-10-12', true],
     ]);
     expect(r.report.newCallings).toEqual([]);
+    // Callings report only: the board must not claim "everyone has a calling".
+    expect(r.baseline.hasMemberList).toBe(false);
   });
 });
 
@@ -137,6 +139,7 @@ describe('buildBaseline (demo export)', () => {
     expect(baseline.assignments.every((a) => /^\d{4}-\d{2}-\d{2}$/.test(a.sustained ?? ''))).toBe(true);
     expect(report.membersOnlyInCallings).toEqual([]);
     expect(baseline.members.length).toBe(158);
+    expect(baseline.hasMemberList).toBe(true);
   });
 
   it('computes who has no calling', () => {

@@ -6,6 +6,7 @@ import { memberKey } from '../model/names';
 import { buildBaseline, parseCsv, matchColumns, CALLING_FIELDS, MEMBER_FIELDS } from '../import/importLcr';
 import { demoCsvs } from '../import/demo';
 import { defaultState, loadState, migrate, saveState } from './persist';
+import { applyImport } from './transitions';
 
 type ScenarioSnapshot = Pick<Scenario, 'addedSlots' | 'assignments'>;
 
@@ -38,7 +39,7 @@ export function useBoard(): Store {
 function makeActions(
   set: (fn: (s: AppState) => AppState) => void,
   get: () => AppState,
-  undo: { push: (id: string, snap: ScenarioSnapshot) => void; pop: (id: string) => ScenarioSnapshot | undefined },
+  undo: { push: (id: string, snap: ScenarioSnapshot) => void; pop: (id: string) => ScenarioSnapshot | undefined; clear: () => void },
 ) {
   /** Edits the active scenario, remembering the previous version for undo. */
   const editScenario = (fn: (s: Scenario, state: AppState) => ScenarioSnapshot) => {
@@ -63,7 +64,11 @@ function makeActions(
         return { ...s, settings: { ...s.settings, collapsedSections: c.includes(key) ? c.filter((k) => k !== key) : [...c, key] } };
       }),
 
-    importBaseline: (baseline: Baseline) => set((s) => ({ ...s, baseline })),
+    importBaseline: (baseline: Baseline) => {
+      // Undo snapshots refer to the old data; after a rebase they'd be wrong.
+      undo.clear();
+      set((s) => applyImport(s, baseline));
+    },
 
     loadDemo: () => {
       const { callings, members } = demoCsvs();
@@ -75,7 +80,8 @@ function makeActions(
         members: m,
         memberMap: matchColumns(m.headers, MEMBER_FIELDS),
       });
-      set((s) => ({ ...defaultState(), settings: s.settings, wardName: 'Maple Grove Ward (demo)', baseline }));
+      undo.clear();
+      set((s) => ({ ...defaultState(), settings: s.settings, wardName: 'Maple Grove Ward (demo)', baseline: { ...baseline, demo: true } }));
     },
 
     // --- Scenarios ---------------------------------------------------------
@@ -225,6 +231,10 @@ export function BoardProvider({ children }: { children: ReactNode }) {
           const snap = stack?.pop();
           setUndoDepth(stack?.length ?? 0);
           return snap;
+        },
+        clear: () => {
+          undoStacks.current.clear();
+          setUndoDepth(0);
         },
       }),
     [set, get],

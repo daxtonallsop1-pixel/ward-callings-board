@@ -14,15 +14,15 @@ This repository is **public** on purpose (see "Why public?" below). That's safe 
 ## Using it
 
 1. Open the site (Vercel URL) on the laptop connected to the TV.
-2. **Import:** LCR has no CSV export, so copy and paste instead. Click **Import**, then for each report:
-   - Open it in LCR, select the whole table (column headings included), and press **Ctrl+C**.
-   - Click into the matching box in the app and press **Ctrl+V**.
+2. **Import:** LCR shows these reports only as PDFs, and the board reads the PDFs directly, in the browser.
+   - In LCR, open the report, click **Print**, and save the PDF into `private/` (or anywhere off GitHub).
+   - Click **Import** and drop each PDF into its box.
 
    The two reports are:
    - **Members with Callings**
-   - The **Member List** (Name, Gender, Age). This is how the board knows who has no calling.
+   - A **member list** (Name, Gender, Age). This is how the board knows who has no calling.
 
-   The importer matches columns automatically. If it can't find one, it asks you to pick it. CSV files still work if you have them.
+   The importer rebuilds the table from the PDF and matches columns automatically. If it can't find one, it asks you to pick it. CSV files and tables pasted from a web page work too.
 3. **Plan:** click **Current (LCR) ▾ → New scenario from Current**. Then:
    - Drag a name onto a calling to move them there. Whoever was in it is released.
    - Hold **Ctrl** (or Alt) while dropping to *add* a calling without releasing the current one.

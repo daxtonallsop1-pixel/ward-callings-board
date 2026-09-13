@@ -242,7 +242,14 @@ export function buildBaseline(input: ImportInput): { baseline: Baseline; report:
   report.members = members.size;
 
   return {
-    baseline: { importedAt: today.toISOString(), orgs, slots, members: [...members.values()], assignments },
+    baseline: {
+      importedAt: today.toISOString(),
+      hasMemberList: !!(input.members && input.memberMap?.name),
+      orgs,
+      slots,
+      members: [...members.values()],
+      assignments,
+    },
     report,
   };
 }

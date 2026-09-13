@@ -104,6 +104,37 @@ function entry(map: Map<string, { from: string[]; to: string[] }>, id: string) {
 
 export const assignmentKey = key;
 
+/**
+ * Carries a scenario's planned moves onto freshly imported LCR data.
+ *
+ * Start from what LCR says now, then re-apply the scenario's own changes
+ * (relative to the data it was built on): drop the callings it released and
+ * add the ones it extended. A planned calling that LCR now already shows is
+ * left as LCR has it (with the real sustained date). Anything involving a
+ * person or calling that no longer exists is dropped.
+ */
+export function rebaseAssignments(
+  oldBase: Assignment[],
+  scenario: Assignment[],
+  newBase: Assignment[],
+  opts: { exists: (a: Assignment) => boolean; isMulti: (slotId: string) => boolean },
+): Assignment[] {
+  const oldKeys = new Set(oldBase.map(key));
+  const scnKeys = new Set(scenario.map(key));
+  const newKeys = new Set(newBase.map(key));
+  const released = new Set(oldBase.filter((a) => !scnKeys.has(key(a))).map(key));
+  const added = scenario.filter((a) => !oldKeys.has(key(a)) && opts.exists(a));
+
+  let result = newBase.filter((a) => !released.has(key(a)));
+  for (const a of added) {
+    if (newKeys.has(key(a))) continue; // LCR already made this change
+    // The plan says this person holds a single-person calling: plan wins.
+    if (!opts.isMulti(a.slotId)) result = result.filter((r) => r.slotId !== a.slotId);
+    result.push(a);
+  }
+  return result;
+}
+
 /** A calling the bishop is considering that doesn't exist in LCR. */
 export function scenarioSlot(orgId: string, title: string, order: number, section?: string): Slot {
   return { id: newId(`new-${orgId}`), orgId, title, order, section, custom: true };

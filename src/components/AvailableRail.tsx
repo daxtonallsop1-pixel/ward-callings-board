@@ -7,6 +7,11 @@ import { Menu, type DragData, type DropData } from './common';
 
 type Gender = 'all' | 'M' | 'F';
 
+/** Older saves don't record it; if anyone is uncalled, a list was imported. */
+export function hasMemberList(baseline: { hasMemberList?: boolean } | null, view: { available: unknown[]; youthAvailable: unknown[]; hidden: unknown[] }): boolean {
+  return baseline?.hasMemberList ?? view.available.length + view.youthAvailable.length + view.hidden.length > 0;
+}
+
 export function AvailableRail() {
   const { state, view, canPlan, actions } = useBoard();
   const [q, setQ] = useState('');
@@ -55,7 +60,15 @@ export function AvailableRail() {
         {adults.map((m) => (
           <PersonRow key={m.id} m={m} draggable={canPlan} released={released.has(m.id)} />
         ))}
-        {!adults.length && <p className="empty-note">{view.available.length ? 'No matches.' : 'Everyone has a calling.'}</p>}
+        {!adults.length && (
+          <p className="empty-note">
+            {view.available.length
+              ? 'No matches.'
+              : hasMemberList(state.baseline, view)
+                ? 'Everyone has a calling.'
+                : 'No member list imported yet, so the board can’t tell who doesn’t have a calling. Click Import and add one in box 2.'}
+          </p>
+        )}
         {state.settings.showYouth && (
           <>
             <div className="rail-group">Youth · {view.youthAvailable.length}</div>

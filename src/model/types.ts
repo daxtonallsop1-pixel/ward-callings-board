@@ -50,6 +50,10 @@ export interface Assignment {
 /** Everything that came from the most recent LCR import. */
 export interface Baseline {
   importedAt: string;
+  /** Fictional demo data (cleared out when real data is imported). */
+  demo?: boolean;
+  /** A member list came with the import, so "no calling" is meaningful. */
+  hasMemberList?: boolean;
   orgs: Organization[];
   slots: Slot[];
   members: Member[];

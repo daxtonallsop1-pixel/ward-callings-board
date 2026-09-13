@@ -2,6 +2,44 @@
 // Usage: npm run build && npx vite preview --port 4173 (in another terminal), then npm run shots
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+
+/** A 2-page PDF laid out like LCR's printed "Members with Callings" (fake names). */
+async function fakeCallingsPdf() {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const dings = await doc.embedFont(StandardFonts.ZapfDingbats);
+  const X = [40, 150, 185, 212, 268, 360, 505, 556];
+  const heads = ['Name', 'Gender', 'Age', 'Birth Date', 'Organization', 'Calling', 'Sustained', 'Set Apart'];
+  const people = [
+    ['Ashby, Levi', 'M', '50', 'Bishopric', 'Bishop'],
+    ['Barlow, Brooke', 'F', '31', 'Primary', 'Primary President'],
+    ['Calder, Clara', 'F', '49', 'Relief Society', 'Relief Society Compassionate Service Coordinator'],
+    ['Draper, Grace', 'F', '61', 'Young Women', 'Young Women Secretary'],
+    ['Everton, Wesley', 'M', '59', 'Elders Quorum', 'Elders Quorum President'],
+    ['Farnsworth, Ivy', 'F', '44', 'Sunday School', 'Gospel Doctrine Teacher'],
+  ];
+  const perPage = 4;
+  for (let p = 0; p * perPage < people.length; p++) {
+    const page = doc.addPage([612, 792]);
+    const text = (s, x, y, f = font) => page.drawText(s, { x, y, size: 9, font: f });
+    text('Maple Grove Ward (1234567)', 40, 760);
+    text('Members with Callings', 480, 760);
+    heads.forEach((h, i) => text(h, X[i], 720));
+    people.slice(p * perPage, (p + 1) * perPage).forEach(([n, g, a, org, calling], i) => {
+      const y = 698 - i * 24;
+      [n, g, a, '1 Jan 1990', org].forEach((c, j) => text(c, X[j], y));
+      if (calling.length > 30) {
+        text(calling.slice(0, 28), X[5], y + 5);
+        text(calling.slice(29), X[5], y - 5);
+      } else text(calling, X[5], y);
+      text('12 Oct 2025', X[6], y);
+      text('✔', X[7] + 12, y, dings); // pdf-lib maps U+2714 to the ZapfDingbats checkmark
+    });
+    text(`Page ${p + 1}`, 520, 40);
+  }
+  return Buffer.from(await doc.save());
+}
 
 const URL = process.env.URL ?? 'http://localhost:4173';
 const OUT = 'screenshots';
@@ -76,6 +114,14 @@ for (const [w, h] of [
     });
     await page.getByText('the pasted table: 3 rows').waitFor();
     await page.screenshot({ path: `${OUT}/import-paste-${w}.png` });
+
+    // Now the real-world path: drop a printed-to-PDF LCR report.
+    await page.locator('.drop input[type=file]').first().setInputFiles({ name: 'callings.pdf', mimeType: 'application/pdf', buffer: await fakeCallingsPdf() });
+    await page.getByText('"callings.pdf": 6 rows').waitFor({ timeout: 15000 });
+    await page.screenshot({ path: `${OUT}/import-pdf-${w}.png` });
+    await page.getByRole('button', { name: 'Replace current data' }).click();
+    await page.getByText('Imported 6 callings').waitFor();
+    await page.screenshot({ path: `${OUT}/after-pdf-${w}.png` });
   }
   await page.close();
 }

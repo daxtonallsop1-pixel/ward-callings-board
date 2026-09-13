@@ -1,6 +1,7 @@
 import { useBoard } from '../store/useBoardStore';
 import { bandLegend } from '../model/tenure';
 import { EditableText, Menu } from './common';
+import { hasMemberList } from './AvailableRail';
 
 export function Header({ onImport, onSettings, onBlank }: { onImport: () => void; onSettings: () => void; onBlank: () => void }) {
   const { state, view, scenario, actions } = useBoard();
@@ -16,7 +17,8 @@ export function Header({ onImport, onSettings, onBlank }: { onImport: () => void
         <span className="sub">
           {asOf ? (
             <>
-              LCR data as of {asOf} · {filled} of {total} callings filled · {view.available.length} adults available
+              LCR data as of {asOf} · {filled} of {total} callings filled
+              {hasMemberList(state.baseline, view) ? ` · ${view.available.length} adults available` : ' · no member list yet'}
             </>
           ) : (
             'No LCR data imported yet'

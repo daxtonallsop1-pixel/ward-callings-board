@@ -1089,10 +1089,26 @@ button {
 }
 
 .drop .file-pick {
-  justify-self: start;
+  display: block;
   cursor: pointer;
-  font-weight: 400;
-  color: var(--muted);
+  text-align: center;
+  font-weight: 600;
+  color: var(--navy-3);
+  background: var(--card);
+  border: 1px dashed var(--rule-strong);
+  border-radius: 0.35rem;
+  padding: 0.7rem;
+  margin-top: 0.35rem;
+}
+
+.drop .file-pick:hover,
+.drop.hot .file-pick {
+  border-color: var(--drop-ring);
+  background: var(--drop);
+}
+
+.drop .paste {
+  font-size: 0.85rem;
 }
 
 .mapping {

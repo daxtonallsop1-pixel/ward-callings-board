@@ -15,6 +15,7 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
   const [callings, setCallings] = useState<Loaded | null>(null);
   const [members, setMembers] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const loadText = (text: string, name: string, fields: Field[], setter: (l: Loaded) => void) => {
     setError(null);
@@ -23,13 +24,28 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       if (csv.headers.length < 2 || !csv.rows.length) throw new Error('empty');
       setter({ fileName: name, csv, map: matchColumns(csv.headers, fields) });
     } catch {
-      setError(`Couldn't find a table in ${name}. Make sure the selection includes the column headings (Name, Calling, …) and at least one row.`);
+      setError(`Couldn't find a table in ${name}. Make sure it includes the column headings (Name, Calling, …) and at least one row.`);
     }
   };
 
   const load = async (file: File, fields: Field[], setter: (l: Loaded) => void) => {
+    setError(null);
     if (/\.(xlsx|xls)$/i.test(file.name)) {
-      setError(`"${file.name}" is an Excel file. Open it in Excel and use File → Save As → CSV, or paste the table instead.`);
+      setError(`"${file.name}" is an Excel file. Open it in Excel and use File → Save As → CSV.`);
+      return;
+    }
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      setBusy(true);
+      try {
+        const { readPdfTable } = await import('../import/readPdf');
+        const text = await readPdfTable(file);
+        if (!text) setError(`Couldn't find a table with a "Name" column in "${file.name}". Is it one of the LCR reports?`);
+        else loadText(text, `"${file.name}"`, fields, setter);
+      } catch {
+        setError(`Couldn't open "${file.name}" as a PDF.`);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     loadText(await file.text(), `"${file.name}"`, fields, setter);
@@ -65,12 +81,12 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
       }
     >
       <p className="help" style={{ marginTop: 0 }}>
-        What you paste is read in this browser only. Nothing is uploaded anywhere. If you ever save a copy as a file, keep it in the project's <code>private/</code> folder and never commit it to GitHub.
+        Reports are read in this browser only. Nothing is uploaded anywhere. Keep the PDFs in the project's <code>private/</code> folder (or delete them after importing), and never commit them to GitHub.
       </p>
 
       <FileZone
         title="1. Members with Callings"
-        hint="In LCR open Members with Callings, select the whole table (headings included), copy it, and paste here."
+        hint="In LCR open Members with Callings, click Print, and save the PDF. Then drop it here."
         loaded={callings}
         onFile={(f) => load(f, CALLING_FIELDS, setCallings)}
         onText={(t) => loadText(t, 'the pasted table', CALLING_FIELDS, setCallings)}
@@ -79,13 +95,14 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
 
       <FileZone
         title="2. Member list (recommended)"
-        hint="In LCR open the Member List, select the table, copy, and paste here. Name is required; Gender and Age help. This is how the board knows who doesn't have a calling."
+        hint="An LCR member list PDF with Name (Gender and Age help). This is how the board knows who doesn't have a calling."
         loaded={members}
         onFile={(f) => load(f, MEMBER_FIELDS, setMembers)}
         onText={(t) => loadText(t, 'the pasted table', MEMBER_FIELDS, setMembers)}
       />
       {members && <Mapping loaded={members} fields={MEMBER_FIELDS} required={MEMBER_REQUIRED} onChange={(map) => setMembers({ ...members, map })} />}
 
+      {busy && <div className="note">Reading PDF…</div>}
       {error && <div className="warn">{error}</div>}
 
       {result && (
@@ -136,10 +153,14 @@ export function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone:
             </div>
           )}
           {!members && <div className="note">No member list: the Available column will be empty until you add one.</div>}
-          {state.scenarios.length > 0 && (
-            <p className="help">
-              Your {state.scenarios.length} scenario{state.scenarios.length > 1 ? 's' : ''} will be kept and marked as built on older data.
-            </p>
+          {state.baseline?.demo ? (
+            <p className="help">The demo data, and any scenarios you made with it, will be cleared.</p>
+          ) : (
+            state.scenarios.length > 0 && (
+              <p className="help">
+                Your {state.scenarios.length} scenario{state.scenarios.length > 1 ? 's' : ''} will be kept, with the planned moves re-applied on top of the new data.
+              </p>
+            )
           )}
         </div>
       )}
@@ -162,24 +183,47 @@ function FileZone({
 }) {
   const [hot, setHot] = useState(false);
   return (
-    <div className={`drop ${hot ? 'hot' : ''} ${loaded ? 'done' : ''}`}>
+    <div
+      className={`drop ${hot ? 'hot' : ''} ${loaded ? 'done' : ''}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setHot(true);
+      }}
+      onDragLeave={() => setHot(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setHot(false);
+        const f = e.dataTransfer.files[0];
+        if (f) onFile(f);
+      }}
+    >
       <strong>{title}</strong>
       <span className="help">{loaded ? `✓ ${loaded.fileName}: ${loaded.csv.rows.length} rows` : hint}</span>
+      <label className="file-pick">
+        {loaded ? 'Choose a different file' : 'Drop the PDF here, or click to choose it'}
+        <input
+          type="file"
+          accept=".pdf,application/pdf,.csv,text/csv,.txt"
+          className="sr-only"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            e.target.value = '';
+          }}
+        />
+      </label>
       <textarea
         className="paste"
-        rows={2}
-        placeholder={loaded ? 'Paste again to replace' : 'Click here and press Ctrl+V'}
+        rows={1}
+        placeholder="…or paste a table copied from a web page"
         value=""
         onChange={() => {}}
         onPaste={(e) => {
           e.preventDefault();
           const html = e.clipboardData.getData('text/html');
-          onText(html ? tableFromHtml(html) ?? e.clipboardData.getData('text/plain') : e.clipboardData.getData('text/plain'));
+          const plain = e.clipboardData.getData('text/plain');
+          onText((html && tableFromHtml(html)) || plain);
         }}
-      />
-      <FilePicker
-        onFile={onFile}
-        onHot={setHot}
       />
     </div>
   );
@@ -187,8 +231,7 @@ function FileZone({
 
 /**
  * Browsers put copied web tables on the clipboard as HTML too; reading the
- * real <table> is more reliable than the plain-text version (cells with
- * line breaks, hidden icons, etc.).
+ * real <table> is more reliable than the plain-text version.
  */
 function tableFromHtml(html: string): string | undefined {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -196,37 +239,6 @@ function tableFromHtml(html: string): string | undefined {
   if (!table || table.rows.length < 2) return undefined;
   const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
   return [...table.rows].map((tr) => [...tr.cells].map((td) => clean(td.textContent ?? '').replace(/\t/g, ' ')).join('\t')).join('\n');
-}
-
-function FilePicker({ onFile, onHot }: { onFile: (f: File) => void; onHot: (h: boolean) => void }) {
-  return (
-    <label
-      className="linkbtn file-pick"
-      onDragOver={(e) => {
-        e.preventDefault();
-        onHot(true);
-      }}
-      onDragLeave={() => onHot(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        onHot(false);
-        const f = e.dataTransfer.files[0];
-        if (f) onFile(f);
-      }}
-    >
-      …or choose / drop a CSV file
-      <input
-        type="file"
-        accept=".csv,text/csv,.xlsx,.xls"
-        className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-          e.target.value = '';
-        }}
-      />
-    </label>
-  );
 }
 
 function Mapping({ loaded, fields, required, onChange }: { loaded: Loaded; fields: Field[]; required: Field[]; onChange: (m: ColumnMap) => void }) {
